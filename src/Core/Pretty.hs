@@ -2,6 +2,7 @@ module Core.Pretty where
 import Text.PrettyPrint
 import Core.Language
 import Core.Utils
+import Prelude hiding ((<>))
 
 pprint :: CoreProgram -> String
 pprint = render . fsep . ppProgram
