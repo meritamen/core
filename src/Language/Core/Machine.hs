@@ -32,12 +32,15 @@ data Instruction
   | Push Int
   | Mkap
   | Slide Int
+  | Update Int
+  | Pop Int
   deriving (Eq, Show)
 
 data Node
   = NNum Int
   | NAp Addr Addr
   | NGlobal Int GmCode
+  | NInd Addr
   deriving Show
 
 alloc :: GmHeap -> Node -> (GmHeap, Addr)
@@ -59,7 +62,7 @@ eval :: GmEval [GmState]
 eval = reverse <$> evalHelper []
   where
     evalHelper states = do
-      { step; doAdmin; state <- get; isFinished <- gmFinal; 
+      { step; doAdmin; state <- get; isFinished <- gmFinal;
       if isFinished then return $ state : states
       else evalHelper $ state : states }
 
@@ -81,13 +84,15 @@ dispatch = \case
   Push n -> push n
   Slide n -> slide n
   Unwind -> unwind
+  Update n -> update n
+  Pop n -> pop n
 
 pushglobal :: Name -> GmEval ()
 pushglobal f = do
   { st@GmState{..} <- get; put st{ gmStack = gmGlobals Map.! f : gmStack } }
 
 pushint :: Int -> GmEval ()
-pushint n = do 
+pushint n = do
   st@GmState{..} <- get
   let (gmHeap', a) = alloc gmHeap (NNum n)
   put st{ gmStack = a : gmStack, gmHeap = gmHeap' }
@@ -120,3 +125,12 @@ unwind = do
     NGlobal n c -> if length gmStack - 1 < n
                       then error "Unwinding with too few arguments"
                       else put st { gmCode = c }
+    NInd a -> put st{ gmStack = a : tail gmStack, gmCode = [Unwind] }
+
+update :: Int -> GmEval ()
+update n = do
+ st@GmState{..} <- get
+ put st{ gmStack = tail gmStack, gmHeap = Map.insert (gmStack !! (n+1)) (NInd $ head gmStack) gmHeap }
+
+pop :: Int -> GmEval ()
+pop n = do { st@GmState{..} <- get; put st{ gmStack = drop n gmStack } }

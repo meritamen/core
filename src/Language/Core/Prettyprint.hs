@@ -42,6 +42,8 @@ pInstruction = \case
   Pushint n -> "Pushint" <+> pretty n
   Mkap -> "Mkap"
   Slide n -> "Slide" <+> pretty n
+  Update n -> "Update" <+> pretty n
+  Pop n -> "Pop" <+> pretty n
 
 pState :: GmState -> Doc ann
 pState s = pStack s <> line <> pInstructions (gmCode s) <> line
@@ -59,6 +61,7 @@ pNode :: GmState -> Addr -> Node -> Doc ann
 pNode _ _ (NNum n) = pretty n
 pNode s a (NGlobal _ _) = "Global" <+> pretty (head [n | (n, b) <- Map.toList $ gmGlobals s, a == b])
 pNode _ _ (NAp a1 a2) = "Ap" <+> pretty (showAddr a1) <+> pretty (showAddr a2)
+pNode _ _ (NInd a) = "Ind" <+> pretty (showAddr a)
 
 pStats :: GmState -> Doc ann
-pStats s = "Steps taken=" <+> pretty (statGetSteps (gmStats s))
+pStats s = "Steps taken=" <+> pretty (statGetSteps $ gmStats s)

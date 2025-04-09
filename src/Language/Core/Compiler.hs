@@ -37,7 +37,9 @@ compileSc :: (Name, [Name], CoreExpr) -> GmCompiledSC
 compileSc (name, env, body) = (name, length env, compileR body $ Map.fromList (zip env [0..]))
 
 compileR :: GmCompiler
-compileR e env = compileC e env <> [Slide (length env +1), Unwind]
+compileR e env = compileC e env <> [Update len, Pop len, Unwind]
+  where
+    len = length env
 
 compileC :: GmCompiler
 compileC (EVar v) env
