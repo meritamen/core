@@ -147,7 +147,11 @@ unwind = do
                     , gmDump = tail gmDump }
     NAp a1 _ -> put st{ gmCode = [Unwind], gmStack = a1 : gmStack }
     NInd a -> put st{ gmStack = a : tail gmStack, gmCode = [Unwind] }
-    NGlobal n c -> put st{ gmStack = rearrange n gmHeap gmStack, gmCode = c }
+    NGlobal n c -> if length gmStack - 1 < n
+                     then put st{ gmCode = fst $ head gmDump
+                                , gmStack = last gmStack : snd (head gmDump)
+                                , gmDump = tail gmDump }
+                     else put st{ gmStack = rearrange n gmHeap gmStack, gmCode = c }
 
 rearrange :: Int -> GmHeap -> GmStack -> GmStack
 rearrange n heap as = take n as' <> drop n as

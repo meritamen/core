@@ -37,9 +37,20 @@ compileSc :: (Name, [Name], CoreExpr) -> GmCompiledSC
 compileSc (name, env, body) = (name, length env, compileR body $ Map.fromList (zip env [0..]))
 
 compileR :: GmCompiler
-compileR e env = compileC e env <> [Update n, Pop n, Unwind]
+compileR e env = compileE e env <> [Update n, Pop n, Unwind]
   where
     n = length env
+
+compileE :: GmCompiler
+compileE (ENum i) _ = [Pushint i]
+compileE (ELet False defs e) env = compileLet compileE defs e env
+compileE (ELet True defs e) env = compileLetrec compileE defs e env
+compileE (EAp (EAp (EVar f) e1) e2) env
+  | f `elem` (Map.keys builtInDyadic) = compileE e1 env <> compileE e2 env <> [builtInDyadic Map.! f]
+compileE (EAp (EVar "negate") e) env = compileE e env <> [Neg]
+compileE (EAp (EAp (EAp (EVar "if") e1) e2) e3) env =
+  compileE e1 env <> [Cond (compileE e2 env) (compileE e3 env)]
+compileE e env = compileC e env <> [Eval]
 
 compileC :: GmCompiler
 compileC (EVar v) args
@@ -92,3 +103,8 @@ compiledPrimitives = [("+", 2, [Push 1, Eval, Push 1, Eval, Add, Update 2, Pop 2
                      , (">", 2, [Push 1, Eval, Push 1, Eval, Gt, Update 2, Pop 2, Unwind])
                      , (">=", 2, [Push 1, Eval, Push 1, Eval, Ge, Update 2, Pop 2, Unwind])
                      , ("if", 3, [Push 0, Eval, Cond [Push 1] [Push 2], Update 3, Pop 3, Unwind])]
+
+builtInDyadic :: Map Name Instruction
+builtInDyadic = Map.fromList [("+", Add), ("-", Sub), ("*", Mul), ("div", Div)
+                             , ("==", Eq), ("~=", Ne), (">=", Ge)
+                             , (">", Gt), ("<=", Le), ("<", Lt)]
