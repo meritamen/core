@@ -37,19 +37,47 @@ compileSc :: (Name, [Name], CoreExpr) -> GmCompiledSC
 compileSc (name, env, body) = (name, length env, compileR body $ Map.fromList (zip env [0..]))
 
 compileR :: GmCompiler
-compileR e env = compileC e env <> [Update len, Pop len, Unwind]
+compileR e env = compileC e env <> [Update n, Pop n, Unwind]
   where
-    len = length env
+    n = length env
 
 compileC :: GmCompiler
-compileC (EVar v) env
-  | elem v (fst <$> Map.toList env) = [Push $ env Map.! v]
+compileC (EVar v) args
+  | elem v (fst <$> Map.toList args) = [Push $ args Map.! v]
   | otherwise = [Pushglobal v]
 compileC (ENum n) _ = [Pushint n]
 compileC (EAp e1 e2) env = compileC e2 env <> compileC e1 (argOffset 1 env) <> [Mkap]
+compileC (ELet False defs e) args = compileLet compileC defs e args
+compileC (ELet True defs e) args = compileLetrec compileC defs e args
 
 argOffset :: Int -> GmEnvironment -> GmEnvironment
 argOffset n env = (+n) <$> env
+
+compileLet :: GmCompiler -> [(Name, CoreExpr)] -> GmCompiler
+compileLet comp defs expr env
+  = compileLet' defs env <> comp expr env' <> [Slide (length defs)]
+    where
+      env' = compileArgs defs env
+
+compileLet' :: [(Name, CoreExpr)] -> GmEnvironment -> GmCode
+compileLet' [] _ = []
+compileLet' ((_, expr):defs) env = compileC expr env <> compileLet' defs (argOffset 1 env)
+
+compileLetrec :: GmCompiler -> [(Name, CoreExpr)] -> GmCompiler
+compileLetrec comp defs expr env
+  = [Alloc n] <> compileLetrec' (n-1) defs env' <> comp expr env' <> [Slide n]
+    where
+      n = length defs
+      env' = compileArgs defs env
+
+compileLetrec' :: Int -> [(Name, CoreExpr)] -> GmEnvironment -> GmCode
+compileLetrec' _ [] _ = []
+compileLetrec' n ((_, expr):defs) env = compileC expr env <> [Update n] <> compileLetrec' (n-1) defs env
+
+compileArgs :: [(Name, CoreExpr)] -> GmEnvironment -> GmEnvironment
+compileArgs defs env = Map.fromList (zip (fst <$> defs) [n-1,n-2..0]) `Map.union` argOffset n env
+  where
+    n = length defs
 
 compiledPrimitives :: [GmCompiledSC]
 compiledPrimitives = []

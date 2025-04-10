@@ -34,6 +34,7 @@ data Instruction
   | Slide Int
   | Update Int
   | Pop Int
+  | Alloc Int
   deriving (Eq, Show)
 
 data Node
@@ -86,6 +87,7 @@ dispatch = \case
   Unwind -> unwind
   Update n -> update n
   Pop n -> pop n
+  Alloc n -> alloc' n
 
 pushglobal :: Name -> GmEval ()
 pushglobal f = do
@@ -107,7 +109,7 @@ mkap = do
 push :: Int -> GmEval ()
 push n = do
   st@GmState{..} <- get
-  put st{ gmStack = (getArg $ gmHeap Map.! (gmStack !! (n+1))) : gmStack }
+  put st{ gmStack = gmStack !! n : gmStack }
 
 getArg :: Node -> Addr
 getArg (NAp _ a2) = a2
@@ -122,10 +124,13 @@ unwind = do
   case gmHeap Map.! head gmStack of
     NNum _ -> put st
     NAp a1 _ -> put st{ gmCode = [Unwind], gmStack = a1 : gmStack }
-    NGlobal n c -> if length gmStack - 1 < n
-                      then error "Unwinding with too few arguments"
-                      else put st { gmCode = c }
     NInd a -> put st{ gmStack = a : tail gmStack, gmCode = [Unwind] }
+    NGlobal n c -> put st{ gmStack = rearrange n gmHeap gmStack, gmCode = c }
+
+rearrange :: Int -> GmHeap -> GmStack -> GmStack
+rearrange n heap as = take n as' <> drop n as
+    where
+      as' = (getArg . (heap Map.!)) <$> tail as
 
 update :: Int -> GmEval ()
 update n = do
@@ -134,3 +139,16 @@ update n = do
 
 pop :: Int -> GmEval ()
 pop n = do { st@GmState{..} <- get; put st{ gmStack = drop n gmStack } }
+
+alloc' :: Int -> GmEval ()
+alloc' n = do
+  st@GmState{..} <- get
+  let (gmHeap', addrs) = allocNodes n gmHeap
+  put st { gmStack = addrs <> gmStack, gmHeap = gmHeap' }
+
+allocNodes :: Int -> GmHeap -> (GmHeap, [Addr])
+allocNodes 0 heap = (heap, [])
+allocNodes n heap = (heap2, a:as)
+  where
+    (heap1, as) = allocNodes (n-1) heap
+    (heap2, a) = alloc heap1 (NInd 0)

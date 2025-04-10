@@ -44,6 +44,7 @@ pInstruction = \case
   Slide n -> "Slide" <+> pretty n
   Update n -> "Update" <+> pretty n
   Pop n -> "Pop" <+> pretty n
+  Alloc n -> "Alloc" <+> pretty n
 
 pState :: GmState -> Doc ann
 pState s = pStack s <> line <> pInstructions (gmCode s) <> line
