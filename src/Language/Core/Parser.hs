@@ -47,11 +47,8 @@ constrP = do
     arity <- integer
     return $ EConstr tag arity
 
-negativeNumP :: Parser CoreExpr
-negativeNumP = parens $ hyphen >> (EAp (EVar "-")) <$> numP
-
 aexprP :: Parser CoreExpr
-aexprP = varP <|> numP <|> constrP <|> try negativeNumP <|> parens exprP
+aexprP = varP <|> numP <|> constrP <|> parens exprP
 
 lamP :: Parser CoreExpr
 lamP = do

@@ -14,6 +14,7 @@ type GmEval = State GmState
 data GmState = GmState
   { gmCode :: GmCode
   , gmStack :: GmStack
+  , gmDump :: GmDump
   , gmHeap :: GmHeap
   , gmGlobals :: GmGlobals
   , gmStats :: GmStats }
@@ -21,6 +22,8 @@ data GmState = GmState
 
 type GmCode = [Instruction]
 type GmStack = [Addr]
+type GmDump = [GmDumpItem]
+type GmDumpItem = (GmCode, GmStack)
 type GmHeap = Map Addr Node
 type GmGlobals = Map Name Addr
 type GmStats = Int
@@ -35,6 +38,10 @@ data Instruction
   | Update Int
   | Pop Int
   | Alloc Int
+  | Eval
+  | Add | Sub | Mul | Div | Neg
+  | Eq | Ne | Lt | Le | Gt | Ge
+  | Cond GmCode GmCode
   deriving (Eq, Show)
 
 data Node
@@ -42,7 +49,7 @@ data Node
   | NAp Addr Addr
   | NGlobal Int GmCode
   | NInd Addr
-  deriving Show
+  deriving (Eq, Show)
 
 alloc :: GmHeap -> Node -> (GmHeap, Addr)
 alloc heap node = if Map.null heap
@@ -88,6 +95,19 @@ dispatch = \case
   Update n -> update n
   Pop n -> pop n
   Alloc n -> alloc' n
+  Eval -> eval'
+  Add -> arithmetic2 (+)
+  Sub -> arithmetic2 (-)
+  Mul -> arithmetic2 (*)
+  Div -> arithmetic2 div
+  Neg -> arithmetic1 negate
+  Eq -> comparison (==)
+  Ne -> comparison (/=)
+  Lt -> comparison (<)
+  Le -> comparison (<=)
+  Gt -> comparison (>)
+  Ge -> comparison (>=)
+  Cond i1 i2 -> cond i1 i2
 
 pushglobal :: Name -> GmEval ()
 pushglobal f = do
@@ -122,7 +142,9 @@ unwind :: GmEval ()
 unwind = do
   st@GmState{..} <- get
   case gmHeap Map.! head gmStack of
-    NNum _ -> put st
+    NNum _ -> put st{ gmCode = fst (head gmDump)
+                    , gmStack = head gmStack : snd (head gmDump)
+                    , gmDump = tail gmDump }
     NAp a1 _ -> put st{ gmCode = [Unwind], gmStack = a1 : gmStack }
     NInd a -> put st{ gmStack = a : tail gmStack, gmCode = [Unwind] }
     NGlobal n c -> put st{ gmStack = rearrange n gmHeap gmStack, gmCode = c }
@@ -144,7 +166,7 @@ alloc' :: Int -> GmEval ()
 alloc' n = do
   st@GmState{..} <- get
   let (gmHeap', addrs) = allocNodes n gmHeap
-  put st { gmStack = addrs <> gmStack, gmHeap = gmHeap' }
+  put st{ gmStack = addrs <> gmStack, gmHeap = gmHeap' }
 
 allocNodes :: Int -> GmHeap -> (GmHeap, [Addr])
 allocNodes 0 heap = (heap, [])
@@ -152,3 +174,59 @@ allocNodes n heap = (heap2, a:as)
   where
     (heap1, as) = allocNodes (n-1) heap
     (heap2, a) = alloc heap1 (NInd 0)
+
+eval' :: GmEval ()
+eval' = do
+  st@GmState{..} <- get
+  put st { gmCode = [Unwind], gmStack = [head gmStack], gmDump = (gmCode, tail gmStack) : gmDump }
+
+boxInteger :: Int -> GmEval ()
+boxInteger n = do
+  st@GmState{..} <- get
+  let (gmHeap', addr) = alloc gmHeap (NNum n)
+  put st{ gmStack = addr : gmStack, gmHeap = gmHeap' }
+
+unboxInteger :: Addr -> GmEval Int
+unboxInteger a = do { GmState{..} <- get; return $ ub $ gmHeap Map.! a }
+  where
+    ub (NNum i) = i
+    ub _ = error "Unboxing a non-integer"
+
+primitive1 :: (b -> GmEval ()) -> (Addr -> GmEval a) -> (a -> b) -> GmEval ()
+primitive1 box unbox op = do
+  st@GmState{..} <- get
+  int1 <- unbox $ head gmStack
+  put st{ gmStack = tail gmStack }
+  box $ op int1
+
+primitive2 :: (b -> GmEval ()) -> (Addr -> GmEval a) -> (a -> a -> b) -> GmEval ()
+primitive2 box unbox op = do
+  st@GmState{..} <- get
+  let (a0:a1:as) = gmStack
+  int1 <- unbox a0
+  int2 <- unbox a1
+  put st{ gmStack = as }
+  box $ op int1 int2
+
+arithmetic1 :: (Int -> Int) -> GmEval ()
+arithmetic1 = primitive1 boxInteger unboxInteger
+
+arithmetic2 :: (Int -> Int -> Int) -> GmEval ()
+arithmetic2 = primitive2 boxInteger unboxInteger
+
+boxBoolean :: Bool -> GmEval ()
+boxBoolean b = do
+  st@GmState{..} <- get
+  let (gmHeap', addr) = alloc gmHeap (NNum b')
+      b' | b = 1 | otherwise = 0
+  put st{ gmStack = addr : gmStack, gmHeap = gmHeap' }
+
+comparison :: (Int -> Int -> Bool) -> GmEval ()
+comparison = primitive2 boxBoolean unboxInteger
+
+cond :: GmCode -> GmCode -> GmEval ()
+cond i1 i2 = do
+  st@GmState{..} <- get
+  if gmHeap Map.! head gmStack == NNum 1
+    then put st{ gmCode = i1 <> gmCode, gmStack = tail gmStack }
+    else put st{ gmCode = i2 <> gmCode, gmStack = tail gmStack }

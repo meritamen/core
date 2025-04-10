@@ -45,9 +45,23 @@ pInstruction = \case
   Update n -> "Update" <+> pretty n
   Pop n -> "Pop" <+> pretty n
   Alloc n -> "Alloc" <+> pretty n
+  Eval -> "Eval"
+  Add -> "Add"
+  Sub -> "Sub"
+  Mul -> "Mul"
+  Div -> "Div"
+  Neg -> "Neg"
+  Eq -> "Eq"
+  Ne -> "Ne"
+  Lt -> "Lt"
+  Le -> "Le"
+  Gt -> "Gt"
+  Ge -> "Ge"
+  Cond l r -> "Cond" <+> "{" <+> mconcat (punctuate "," (pInstruction <$> l)) <+> "}"
+                     <+> "{" <+> mconcat (punctuate "," (pInstruction <$> r)) <+> "}"
 
 pState :: GmState -> Doc ann
-pState s = pStack s <> line <> pInstructions (gmCode s) <> line
+pState s = pStack s <> line <> pDump s <> line <> pInstructions (gmCode s) <> line
 
 pStack :: GmState -> Doc ann
 pStack s =
@@ -66,3 +80,23 @@ pNode _ _ (NInd a) = "Ind" <+> pretty (showAddr a)
 
 pStats :: GmState -> Doc ann
 pStats s = "Steps taken=" <+> pretty (statGetSteps $ gmStats s)
+
+pDump :: GmState -> Doc ann
+pDump s =
+  "  Dump:["
+  <> indent 1 (mconcat (punctuate ", " (pDumpItem <$> (reverse (gmDump s)))))
+  <> "]"
+
+pDumpItem :: GmDumpItem -> Doc ann
+pDumpItem (code, stack) = "<" <> pShortInstructions 3 code <+> "," <> pShortStack stack <> ">"
+
+pShortInstructions :: Int -> GmCode -> Doc ann
+pShortInstructions number code
+  = "{" <> mconcat (punctuate "; " dotcodes) <> "}"
+    where
+      codes = pInstruction <$> take number code
+      dotcodes | length code > number = codes <> ["..."]
+               | otherwise = codes
+
+pShortStack :: GmStack -> Doc ann
+pShortStack stack = "[" <> mconcat (punctuate ", " ((pretty . showAddr) <$> stack)) <> "]"
