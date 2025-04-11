@@ -57,11 +57,22 @@ pInstruction = \case
   Le -> "Le"
   Gt -> "Gt"
   Ge -> "Ge"
-  Cond l r -> "Cond" <+> "{" <+> mconcat (punctuate "," (pInstruction <$> l)) <+> "}"
-                     <+> "{" <+> mconcat (punctuate "," (pInstruction <$> r)) <+> "}"
+  Cond l r -> "Cond" <+> "[" <+> mconcat (punctuate ", " (pInstruction <$> l)) <+> "]"
+                     <+> "[" <+> mconcat (punctuate ", " (pInstruction <$> r)) <+> "]"
+  Pack a1 a2 -> "Pack" <+> pretty a1 <+> pretty a2
+  Casejump alts ->
+    "Casejump"
+    <+> "["
+    <+> mconcat ((\(n, c) -> pretty n <> "->"
+                             <+> "["
+                             <+> mconcat (punctuate ", " (pInstruction <$> c))
+                             <+> "]") <$> alts)
+    <+> "}]"
+  Split n -> "Split" <+> pretty n
+  Print -> "Print"
 
 pState :: GmState -> Doc ann
-pState s = pStack s <> line <> pDump s <> line <> pInstructions (gmCode s) <> line
+pState s = pOutput s <> line <> pStack s <> line <> pDump s <> line <> pInstructions (gmCode s) <> line
 
 pStack :: GmState -> Doc ann
 pStack s =
@@ -77,6 +88,11 @@ pNode _ _ (NNum n) = pretty n
 pNode s a (NGlobal _ _) = "Global" <+> pretty (head [n | (n, b) <- Map.toList $ gmGlobals s, a == b])
 pNode _ _ (NAp a1 a2) = "Ap" <+> pretty (showAddr a1) <+> pretty (showAddr a2)
 pNode _ _ (NInd a) = "Ind" <+> pretty (showAddr a)
+pNode _ _ (NConstr t as) =
+  "Cons "
+  <> pretty t <+> "["
+  <> mconcat (punctuate "," (pretty . showAddr <$> as))
+  <> "]"
 
 pStats :: GmState -> Doc ann
 pStats s = "Steps taken=" <+> pretty (statGetSteps $ gmStats s)
@@ -100,3 +116,6 @@ pShortInstructions number code
 
 pShortStack :: GmStack -> Doc ann
 pShortStack stack = "[" <> mconcat (punctuate ", " ((pretty . showAddr) <$> stack)) <> "]"
+
+pOutput :: GmState -> Doc ann
+pOutput s = "Output:\"" <> pretty (gmOutput s) <> "\""

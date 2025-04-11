@@ -1,10 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Language.Core.Compiler where
+module Language.Core.Compiler  where
 
 import Data.List (mapAccumL)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
+import TextShow (showt)
 
 import Language.Core.AST
 import Language.Core.Machine
@@ -16,7 +17,7 @@ type GmCompiler = CoreExpr -> GmEnvironment -> GmCode
 type GmEnvironment = Map Name Int
 
 compile :: CoreProgram -> GmState
-compile program = GmState initialCode [] [] heap globals statInitial
+compile program = GmState "" initialCode [] [] heap globals statInitial
   where
     (heap, globals) = buildInitialHeap program
 
@@ -31,7 +32,7 @@ allocateSc heap (name, nargs, instns) = (heap', (name, addr))
     (heap', addr) = alloc heap (NGlobal nargs instns)
 
 initialCode :: GmCode
-initialCode = [Pushglobal "main", Eval]
+initialCode = [Pushglobal "main", Eval, Print]
 
 compileSc :: (Name, [Name], CoreExpr) -> GmCompiledSC
 compileSc (name, env, body) = (name, length env, compileR body $ Map.fromList (zip env [0..]))
@@ -50,16 +51,34 @@ compileE (EAp (EAp (EVar f) e1) e2) env
 compileE (EAp (EVar "negate") e) env = compileE e env <> [Neg]
 compileE (EAp (EAp (EAp (EVar "if") e1) e2) e3) env =
   compileE e1 env <> [Cond (compileE e2 env) (compileE e3 env)]
+compileE (ECase e alts) env =
+  compileE e env <> [Casejump $ compileAlts compileE' alts env]
 compileE e env = compileC e env <> [Eval]
 
 compileC :: GmCompiler
+compileC (EConstr t n) _ = [Pushglobal $ "Pack{" <> showt t <> "," <> showt n <> "}"]
 compileC (EVar v) args
   | elem v (fst <$> Map.toList args) = [Push $ args Map.! v]
   | otherwise = [Pushglobal v]
 compileC (ENum n) _ = [Pushint n]
-compileC (EAp e1 e2) env = compileC e2 env <> compileC e1 (argOffset 1 env) <> [Mkap]
+compileC e@(EAp e1 e2) env
+  | saturatedCons spine = compileCS (reverse spine) env
+  | otherwise = compileC e2 env <> compileC e1 (argOffset 1 env) <> [Mkap]
+  where
+    spine = makeSpine e
+    saturatedCons (EConstr _ a:es) = a == length es
+    saturatedCons _ = False
 compileC (ELet False defs e) args = compileLet compileC defs e args
 compileC (ELet True defs e) args = compileLetrec compileC defs e args
+compileC e _ = error $ "compileC invalid call: " ++ show e
+
+makeSpine :: CoreExpr -> [CoreExpr]
+makeSpine (EAp e1 e2) = makeSpine e1 ++ [e2]
+makeSpine e = [e]
+
+compileCS :: [CoreExpr] -> GmEnvironment -> GmCode
+compileCS [EConstr t a] _ = [Pack t a]
+compileCS (e:es) args = compileC e args <> compileCS es (argOffset 1 args)
 
 argOffset :: Int -> GmEnvironment -> GmEnvironment
 argOffset n env = (+n) <$> env
@@ -89,6 +108,15 @@ compileArgs :: [(Name, CoreExpr)] -> GmEnvironment -> GmEnvironment
 compileArgs defs env = Map.fromList (zip (fst <$> defs) [n-1,n-2..0]) `Map.union` argOffset n env
   where
     n = length defs
+
+compileAlts :: (Int -> GmCompiler) -> [CoreAlt] -> GmEnvironment -> [(Int, GmCode)]
+compileAlts comp alts env =
+  [(tag, comp (length names) body (Map.fromList (zip names [0..]) `Map.union` argOffset (length names) env))
+        | (tag, names, body) <- alts]
+
+compileE' :: Int -> GmCompiler
+compileE' offset expr env
+  = [Split offset] <> compileE expr env <> [Slide offset]
 
 compiledPrimitives :: [GmCompiledSC]
 compiledPrimitives = [("+", 2, [Push 1, Eval, Push 1, Eval, Add, Update 2, Pop 2, Unwind])

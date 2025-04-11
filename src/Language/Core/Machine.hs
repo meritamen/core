@@ -1,18 +1,25 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Language.Core.Machine where
 
+import Control.Monad (join)
 import Control.Monad.State.Strict (State, put, get, gets)
+import Data.Char (digitToInt)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
+import Data.Text (Text)
+import qualified Data.Text as T
+import TextShow (showt)
 
 import Language.Core.Utils
 
 type GmEval = State GmState
 
 data GmState = GmState
-  { gmCode :: GmCode
+  { gmOutput :: GmOutput
+  , gmCode :: GmCode
   , gmStack :: GmStack
   , gmDump :: GmDump
   , gmHeap :: GmHeap
@@ -20,6 +27,7 @@ data GmState = GmState
   , gmStats :: GmStats }
   deriving Show
 
+type GmOutput = Text
 type GmCode = [Instruction]
 type GmStack = [Addr]
 type GmDump = [GmDumpItem]
@@ -42,6 +50,10 @@ data Instruction
   | Add | Sub | Mul | Div | Neg
   | Eq | Ne | Lt | Le | Gt | Ge
   | Cond GmCode GmCode
+  | Pack Int Int
+  | Casejump [(Int, GmCode)]
+  | Split Int
+  | Print
   deriving (Eq, Show)
 
 data Node
@@ -49,6 +61,7 @@ data Node
   | NAp Addr Addr
   | NGlobal Int GmCode
   | NInd Addr
+  | NConstr Int [Addr]
   deriving (Eq, Show)
 
 alloc :: GmHeap -> Node -> (GmHeap, Addr)
@@ -108,10 +121,37 @@ dispatch = \case
   Gt -> comparison (>)
   Ge -> comparison (>=)
   Cond i1 i2 -> cond i1 i2
+  Pack t n -> pack t n
+  Casejump alts -> casejump alts
+  Split n -> split n
+  Print -> print'
 
 pushglobal :: Name -> GmEval ()
-pushglobal f = do
-  { st@GmState{..} <- get; put st{ gmStack = gmGlobals Map.! f : gmStack } }
+pushglobal f | Just (t, n) <- matchPack f = do
+                 st@GmState{..} <- get
+                 if f `elem` Map.keys gmGlobals
+                   then put st{ gmStack = gmGlobals Map.! f : gmStack }
+                   else let t' = text2Int t
+                            n' = text2Int n
+                            (gmHeap', addr) = alloc gmHeap (NGlobal n' [Pack t' n', Update 0, Unwind])
+                        in put st{ gmStack = addr : gmStack
+                                 , gmHeap = gmHeap'
+                                 , gmGlobals = Map.insert f addr gmGlobals }
+
+             | True = do
+                 { st@GmState{..} <- get; put st{ gmStack = gmGlobals Map.! f : gmStack } }
+
+matchPack :: Text -> Maybe (Text, Text)
+matchPack txt =
+    case T.stripPrefix "Pack{" txt >>= T.stripSuffix "}" of
+        Just inner ->
+            case T.splitOn "," inner of
+                [x, y] -> Just (T.strip x, T.strip y)
+                _      -> Nothing
+        Nothing -> Nothing
+
+text2Int :: Text -> Int
+text2Int text | [c] <- T.unpack text = digitToInt c
 
 pushint :: Int -> GmEval ()
 pushint n = do
@@ -152,6 +192,9 @@ unwind = do
                                 , gmStack = last gmStack : snd (head gmDump)
                                 , gmDump = tail gmDump }
                      else put st{ gmStack = rearrange n gmHeap gmStack, gmCode = c }
+    NConstr _ _ -> put st{ gmCode = fst $ head gmDump
+                         , gmStack = head gmStack : snd (head gmDump)
+                         , gmDump = tail gmDump }
 
 rearrange :: Int -> GmHeap -> GmStack -> GmStack
 rearrange n heap as = take n as' <> drop n as
@@ -234,3 +277,34 @@ cond i1 i2 = do
   if gmHeap Map.! head gmStack == NNum 1
     then put st{ gmCode = i1 <> gmCode, gmStack = tail gmStack }
     else put st{ gmCode = i2 <> gmCode, gmStack = tail gmStack }
+
+pack :: Int -> Int -> GmEval ()
+pack t n = do
+  st@GmState{..} <- get
+  let (gmHeap', addr) = alloc gmHeap $ NConstr t $ take n gmStack
+  put st{ gmStack = addr : drop n gmStack, gmHeap = gmHeap' }
+
+casejump :: [(Int, GmCode)] -> GmEval ()
+casejump alts = do
+  st@GmState{..} <- get
+  put st{ gmCode = Map.fromList alts Map.! getConstrTag (gmHeap Map.! head gmStack) <> gmCode }
+
+split :: Int -> GmEval ()
+split n = do
+  st@GmState{..} <- get
+  put st{ gmStack = take n (getConstrAddrs (gmHeap Map.! head gmStack)) <> tail gmStack }
+
+print' :: GmEval ()
+print' = do
+  st@GmState{..} <- get
+  case gmHeap Map.! head gmStack of
+    NNum n -> put st{ gmOutput = gmOutput <> showt n }
+    NConstr t as -> put st{ gmOutput = "Pack{" <> showt t <> "," <> showt (length as) <> "}"
+                          , gmStack = as <> tail gmStack
+                          , gmCode = join (replicate (length as) [Eval, Print]) <> gmCode }
+
+getConstrTag :: Node -> Int
+getConstrTag (NConstr t _) = t
+
+getConstrAddrs :: Node -> [Addr]
+getConstrAddrs (NConstr _ as) = as
