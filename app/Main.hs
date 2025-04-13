@@ -6,11 +6,12 @@ import qualified Data.Text.IO as TIO
 import System.Environment (getArgs)
 
 import Core.Compiler
+import Core.LambdaLifting
 import Core.Machine
 import Core.Parser
 
 runProg :: Text -> Text
-runProg = showResults . evalState eval . compile . parseCore
+runProg = showResults . evalState eval . compile . lambdaLift . parseCore
 
 main :: IO ()
 main = do

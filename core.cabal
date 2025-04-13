@@ -16,6 +16,7 @@ common warnings
 library
     import:           warnings
     exposed-modules:  Core.Compiler
+                    , Core.LambdaLifting
                     , Core.Language
                     , Core.Machine
                     , Core.Parser
