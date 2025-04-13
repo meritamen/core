@@ -6,7 +6,6 @@ import qualified Data.Text.IO as TIO
 import System.Environment (getArgs)
 
 import Core.Compiler
-import Core.Language.Prettyprint
 import Core.Machine
 import Core.Parser
 

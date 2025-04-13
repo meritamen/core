@@ -17,7 +17,6 @@ library
     import:           warnings
     exposed-modules:  Core.Compiler
                     , Core.Language
-                    , Core.Language.Prettyprint
                     , Core.Machine
                     , Core.Parser
                     , Core.Prelude

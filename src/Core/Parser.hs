@@ -2,24 +2,25 @@
 
 module Core.Parser (parseCore, parseCoreFile) where
 
-import Control.Exception (throw)
-import Control.Monad (void)
-import Control.Monad.Combinators.Expr (Operator (..), makeExprParser)
-import Data.Text (Text)
-import qualified Data.Text as T
-import qualified Data.Text.IO as TIO
-import Text.Megaparsec
-  ( runParser
-  , eof
-  , sepBy
-  , sepBy1
-  , many
-  , (<|>)
-  , some
-  , notFollowedBy
-  , try
-  , choice )
-import Text.Megaparsec.Char (space)
+import           Control.Exception              (throw)
+import           Control.Monad                  (void)
+import           Control.Monad.Combinators.Expr (Operator (..), makeExprParser)
+import           Data.Text                      (Text)
+import qualified Data.Text                      as T
+import qualified Data.Text.IO                   as TIO
+import           Text.Megaparsec
+    ( choice
+    , eof
+    , many
+    , notFollowedBy
+    , runParser
+    , sepBy
+    , sepBy1
+    , some
+    , try
+    , (<|>)
+    )
+import           Text.Megaparsec.Char           (space)
 
 import Core.Language
 import Core.Scanner
@@ -33,7 +34,7 @@ variable = choice $ [try alphaVariable]
             else return v
 
 varP :: Parser CoreExpr
-varP = EVar <$> variable 
+varP = EVar <$> variable
 
 numP :: Parser CoreExpr
 numP = ENum <$> integer
@@ -84,11 +85,20 @@ letP = do
       expr <- exprP
       return (var, expr)
 
+lamP :: Parser CoreExpr
+lamP = do
+  backSlash
+  args <- many variable
+  dot
+  expr <- exprP
+  return $ ELam args expr
+
 operatorTable :: [[Operator Parser CoreExpr]]
 operatorTable = (fmap . fmap) binary
                 [ ["*", "/"]
                 , ["+", "-"]
-                , ["==", "~=", ">=", "<=", "+", "-", "*", "/", ">", "<"] ]
+                , ["==", "~=", ">=", "<=", "+", "-", "*", "/", ">", "<"]
+                , ["&", "|"]]
   where
     binary name = InfixL (mkBinaryAp name <$ symbol name)
     mkBinaryAp op = \l r -> EAp (EAp (EVar op) l) r
@@ -97,7 +107,7 @@ apP :: Parser CoreExpr
 apP = makeExprParser (foldl1 EAp <$> some aexprP) operatorTable
 
 exprP :: Parser CoreExpr
-exprP = apP <|> letP <|> caseP <|> aexprP
+exprP = apP <|> letP <|> caseP <|> lamP <|> aexprP
 
 scDefnP :: Parser CoreScDefn
 scDefnP = do

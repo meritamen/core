@@ -25,7 +25,9 @@ testPrograms = addPrefix testPath <$>
               , ("fibonazzi.core", "377")
               , ("gcd.core", "12")
               , ("letrec.core", "1")
-              , ("undefined.core", "123")]
+              , ("undefined.core", "123")
+              , ("logical1.core", "Pack{2,0}")
+              , ("logical2.core", "Pack{2,0}")]
   where
     addPrefix prefix (path, result) = (prefix <> path, result)
 

@@ -1,6 +1,6 @@
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 
 module Core.Machine
   ( GmState (..)
@@ -19,29 +19,32 @@ module Core.Machine
   , statIncSteps
   , statGetSteps
   , eval
+  , showResults
   ) where
 
-import Control.Monad (join)
-import Control.Monad.State.Strict (State, put, get, gets)
-import Data.Map.Strict (Map)
-import qualified Data.Map.Strict as Map
-import Data.Text (Text)
-import qualified Data.Text as T
-import Text.Read (readMaybe)
-import TextShow (showt)
+import           Control.Monad              (join)
+import           Control.Monad.State.Strict (State, get, gets, put)
+import           Data.Map.Strict            (Map)
+import qualified Data.Map.Strict            as Map
+import           Data.Text                  (Text)
+import qualified Data.Text                  as T
+import           Prettyprinter
+    (Doc, indent, line, pretty, punctuate, vsep, (<+>))
+import           Text.Read                  (readMaybe)
+import           TextShow                   (showt)
 
 import Core.Utils
 
 type GmEval = State GmState
 
 data GmState = GmState
-  { gmOutput :: GmOutput
-  , gmCode :: GmCode
-  , gmStack :: GmStack
-  , gmDump :: GmDump
-  , gmHeap :: GmHeap
+  { gmOutput  :: GmOutput
+  , gmCode    :: GmCode
+  , gmStack   :: GmStack
+  , gmDump    :: GmDump
+  , gmHeap    :: GmHeap
   , gmGlobals :: GmGlobals
-  , gmStats :: GmStats }
+  , gmStats   :: GmStats }
   deriving Show
 
 type GmOutput = Text
@@ -71,6 +74,9 @@ data Instruction
   | Casejump [(Int, GmCode)]
   | Split Int
   | Print
+  | Not
+  | And
+  | Or
   deriving (Eq, Show)
 
 data Node
@@ -146,6 +152,9 @@ dispatch = \case
   Casejump alts -> casejump alts
   Split n -> split n
   Print -> print'
+  Not -> logical1 not
+  And -> logical2 (&&)
+  Or -> logical2 (||)
 
 pushglobal :: Name -> GmEval ()
 pushglobal f | Just (t, n) <- extractPack f = do
@@ -162,7 +171,7 @@ pushglobal f | Just (t, n) <- extractPack f = do
 
 extractPack :: Text -> Maybe (Int, Int)
 extractPack text
-    | "Pack{" `T.isPrefixOf` text && "}" `T.isSuffixOf` text = 
+    | "Pack{" `T.isPrefixOf` text && "}" `T.isSuffixOf` text =
         let
             innerText = T.drop 5 (T.dropEnd 1 text)
             parts = T.splitOn "," innerText
@@ -204,15 +213,15 @@ unwind = do
     NNum _ -> put st{ gmCode = fst $ head gmDump
                     , gmStack = head gmStack : snd (head gmDump)
                     , gmDump = tail gmDump }
-    NConstr _  _ -> put st{ gmCode = fst $ head gmDump                
+    NConstr _  _ -> put st{ gmCode = fst $ head gmDump
                           , gmStack = head gmStack : snd (head gmDump)
-                          , gmDump = tail gmDump }                    
+                          , gmDump = tail gmDump }
     NAp a1 _ -> put st{ gmCode = [Unwind], gmStack = a1 : gmStack }
     NInd a -> put st{ gmStack = a : tail gmStack, gmCode = [Unwind] }
     NGlobal n c -> if length gmStack - 1 < n
-                   then put st{ gmCode = fst $ head gmDump                
+                   then put st{ gmCode = fst $ head gmDump
                               , gmStack = head gmStack : snd (head gmDump)
-                              , gmDump = tail gmDump }                    
+                              , gmDump = tail gmDump }
                    else put st{ gmStack = rearrange n gmHeap gmStack, gmCode = c }
 
 rearrange :: Int -> GmHeap -> GmStack -> GmStack
@@ -334,3 +343,135 @@ print' = do
     NConstr t as -> put st{ gmOutput = "Pack{" <> showt t <> "," <> showt (length as) <> "}"
                           , gmStack = as <> tail gmStack
                           , gmCode = join (replicate (length as) [Eval, Print]) <> gmCode }
+
+logical1 :: (Bool -> Bool) -> GmEval ()
+logical1 op = do
+  st@GmState{..} <- get
+  let result = bool2Node $ op $ node2Bool $ gmHeap Map.! head gmStack
+      (gmHeap', addr) = alloc gmHeap result
+  put st{ gmStack = addr : tail gmStack, gmHeap = gmHeap' }
+
+logical2 :: (Bool -> Bool -> Bool) -> GmEval ()
+logical2 op = do
+  st@GmState{..} <- get
+  let (a0:a1:as) = gmStack
+      result = bool2Node $ op (node2Bool (gmHeap Map.! a0)) (node2Bool (gmHeap Map.! a1))
+      (gmHeap', addr) = alloc gmHeap result
+  put st{ gmStack = addr : as, gmHeap = gmHeap' }
+
+node2Bool :: Node -> Bool
+node2Bool (NConstr 1 []) = False
+node2Bool (NConstr 2 []) = True
+
+bool2Node :: Bool -> Node
+bool2Node True  = NConstr 2 []
+bool2Node False = NConstr 1 []
+
+showResults :: [GmState] -> Text
+showResults states = T.pack . show $
+  "Supercombinator definitions" <> line
+  <> mconcat (punctuate line (pSC s <$> Map.toList (gmGlobals s)))
+  <> line <> line <> "State transitions" <> line <> line
+  <> vsep (pState <$> states)
+  <> line <> line
+  <> pStats (last states)
+  where
+    (s:_) = states
+
+pSC :: GmState -> (Name, Addr) -> Doc ann
+pSC s (name, addr) =
+  "Code for" <+> pretty name <> line <> pInstructions code <> line
+  where
+    (NGlobal _ code) = gmHeap s Map.! addr
+
+pInstructions :: GmCode -> Doc ann
+pInstructions is =
+  "  Code:{"
+  <> indent 1 (mconcat (punctuate ", " (pInstruction <$> is)))
+  <+> "}" <> line
+
+pInstruction :: Instruction -> Doc ann
+pInstruction = \case
+  Unwind -> "Unwind"
+  Pushglobal f -> "Pushglobal" <+> pretty f
+  Push n -> "Push" <+> pretty n
+  Pushint n -> "Pushint" <+> pretty n
+  Mkap -> "Mkap"
+  Slide n -> "Slide" <+> pretty n
+  Update n -> "Update" <+> pretty n
+  Pop n -> "Pop" <+> pretty n
+  Alloc n -> "Alloc" <+> pretty n
+  Eval -> "Eval"
+  Add -> "Add"
+  Sub -> "Sub"
+  Mul -> "Mul"
+  Div -> "Div"
+  Neg -> "Neg"
+  Eq -> "Eq"
+  Ne -> "Ne"
+  Lt -> "Lt"
+  Le -> "Le"
+  Gt -> "Gt"
+  Ge -> "Ge"
+  Cond i1 i2 -> "Cond" <+> "[" <> mconcat (punctuate ", " (pInstruction <$> i1)) <> "]"
+                       <+> "[" <> mconcat (punctuate ", " (pInstruction <$> i2)) <> "]"
+  Pack n0 n1 -> "Pack" <+> pretty n0 <+> pretty n1
+  Casejump alts ->
+    "Casejump" <+> "[" <>
+    mconcat ((\(tag, code) ->
+                pretty tag <+> "->"
+                <+> "[" <> mconcat (punctuate ", " (pInstruction <$> code)) <> "]") <$> alts)
+    <+> "]"
+  Split n -> "Split" <+> pretty n
+  Print -> "Print"
+  Not -> "Not"
+  And -> "And"
+  Or -> "Or"
+
+pState :: GmState -> Doc ann
+pState s = pOutput s <> line
+           <> pStack s <> line
+           <> pDump s <> line
+           <> pInstructions (gmCode s) <> line
+
+pStack :: GmState -> Doc ann
+pStack s =
+  " Stack:["
+  <> indent 1 (mconcat (punctuate ", " (pStackItem s <$> gmStack s)))
+  <+> "]"
+
+pStackItem :: GmState -> Addr -> Doc ann
+pStackItem s a = pretty (showAddr a) <> ":" <+> pNode s a (gmHeap s Map.! a)
+
+pNode :: GmState -> Addr -> Node -> Doc ann
+pNode _ _ (NNum n) = pretty n
+pNode s a (NGlobal _ _) = "Global" <+> pretty (head [n | (n, b) <- Map.toList $ gmGlobals s, a == b])
+pNode _ _ (NAp a1 a2) = "Ap" <+> pretty (showAddr a1) <+> pretty (showAddr a2)
+pNode _ _ (NInd a) = "Ind" <+> pretty (showAddr a)
+pNode _ _ (NConstr t as)
+  = "Cons" <+> pretty t <+> "[" <> mconcat (punctuate ", " (pretty . showAddr <$> as)) <> "]"
+
+pStats :: GmState -> Doc ann
+pStats s = "Steps taken=" <+> pretty (statGetSteps $ gmStats s)
+
+pDump :: GmState -> Doc ann
+pDump s = "  Dump:["
+          <> indent 1 (mconcat (punctuate ", " (pDumpItem <$> (reverse (gmDump s)))))
+          <+> "]"
+
+pDumpItem :: GmDumpItem -> Doc ann
+pDumpItem (code, stack) = "<" <> pShortInstruction 3 code <> "," <+> pShortStack stack <> ">"
+
+pShortInstruction :: Int -> GmCode -> Doc ann
+pShortInstruction number code
+  = "{" <> mconcat (punctuate "; " dotcodes) <> "}"
+    where
+      codes = pInstruction <$> take number code
+      dotcodes | length code > number = codes <> ["..."]
+               | otherwise = codes
+
+pShortStack :: GmStack -> Doc ann
+pShortStack stack = "[" <> mconcat (punctuate ", " (pretty . showAddr <$> stack)) <> "]"
+
+pOutput :: GmState -> Doc ann
+pOutput s = "Output:\"" <> pretty (gmOutput s) <> "\""

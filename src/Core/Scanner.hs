@@ -19,12 +19,12 @@ module Core.Scanner
   , keywords
   ) where
 
-import Control.Monad (void)
-import Data.Text (Text)
-import qualified Data.Text as T
-import Data.Void (Void)
-import Text.Megaparsec (Parsec, (<|>), many, between)
-import Text.Megaparsec.Char
+import           Control.Monad              (void)
+import           Data.Text                  (Text)
+import qualified Data.Text                  as T
+import           Data.Void                  (Void)
+import           Text.Megaparsec            (Parsec, between, many, (<|>))
+import           Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 
 type Parser = Parsec Void Text
@@ -79,7 +79,7 @@ identifier = lexeme $
   T.cons <$> letterChar <*> (T.pack <$> many (alphaNumChar <|> char '_'))
 
 operators :: [Parser Text]
-operators = map symbol ["==", "~=", ">=", "<=", "+", "-", "*", "/", ">", "<"]
+operators = map symbol ["==", "~=", ">=", "<=", "+", "-", "*", "/", ">", "<", "&", "|"]
 
 keywords :: [Text]
 keywords = ["let", "letrec", "case", "in", "of", "Pack"]

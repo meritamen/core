@@ -30,6 +30,7 @@ data Expr a
   | EAp (Expr a) (Expr a)
   | ELet IsRec [(a, Expr a)] (Expr a)
   | ECase (Expr a) [Alter a]
+  | ELam [a] (Expr a)
   deriving Show
 
 type Alter a = (Int, [a], Expr a)

@@ -3,11 +3,11 @@
 module Core.Utils (Name, Addr, showAddr) where
 
 import Data.Text (Text)
-import TextShow (showt)
+import TextShow  (showt)
 
 type Name = Text
 
-type Addr = Int                  
-                                 
-showAddr :: Int -> Text          
+type Addr = Int
+
+showAddr :: Int -> Text
 showAddr addr = "#" <> showt addr
