@@ -1,0 +1,5 @@
+fun1 = \x. x + 1;
+
+fun2 = \y. (fun1 y) < 20;
+
+main = if (fun2 19) 1 2
