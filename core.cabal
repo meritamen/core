@@ -1,8 +1,10 @@
 cabal-version:      3.0
 name:               core
 version:            0.1.0.0
--- synopsis:
--- description:
+synopsis:           G-machine
+description:        G-machine Implementation of Core compiler
+License:            BSD-3-Clause
+License-file:       LICENSE
 author:             Meritamen
 maintainer:         meritamen@sdf.org
 category:           Language
@@ -21,29 +23,25 @@ library
                     , Core.Prelude
                     , Core.Scanner
                     , Core.Utils
-    -- other-modules:
-    -- other-extensions:
-    build-depends:    base ^>=4.18.3.0
-                    , containers
-                    , megaparsec
-                    , mtl
-                    , parser-combinators
-                    , prettyprinter
-                    , text
-                    , text-show
+    build-depends:    base >=4.18.3.0 && < 4.22
+                    , containers >= 0.7 && < 0.8
+                    , megaparsec >= 9.7.0 && < 9.8
+                    , mtl >= 2.3.2 && < 2.4
+                    , parser-combinators >= 1.3.1 && < 1.4
+                    , prettyprinter >= 1.7.1 && < 1.8
+                    , text >= 2.1.4 && < 2.2
+                    , text-show >= 3.11.3 && < 3.12
     hs-source-dirs:   src
     default-language: Haskell2010
 
 executable core
     import:           warnings
     main-is:          Main.hs
-    -- other-modules:
-    -- other-extensions:
     build-depends:
-                      base ^>=4.18.3.0
+                      base >=4.18.3.0 && < 4.22
                     , core
-                    , mtl
-                    , text
+                    , mtl >= 2.3.2 && < 2.4
+                    , text >= 2.1.4 && < 2.2
 
     hs-source-dirs:   app
     default-language: Haskell2010
@@ -53,25 +51,23 @@ benchmark core-bench
     main-is:          Bench.hs
     build-depends:    base
                     , core
-                    , criterion
-                    , deepseq
-                    , directory
-                    , filepath
-                    , mtl
-                    , text
+                    , criterion >= 1.6.5 && < 1.7
+                    , deepseq >= 1.5.1 && < 1.6
+                    , directory >= 1.3.10 && < 1.4
+                    , filepath >= 1.5.5 && < 1.6
+                    , mtl >= 2.3.2 && < 2.4
+                    , text >= 2.1.4 && < 2.2
     hs-source-dirs:   benchmark
 
 test-suite core-test
     import:           warnings
     default-language: Haskell2010
-    -- other-modules:
-    -- other-extensions:
     type:             exitcode-stdio-1.0
     hs-source-dirs:   test
     main-is:          Main.hs
     build-depends:
-                      base ^>=4.18.3.0
-                    , HUnit
+                      base >=4.18.3.0 && < 4.22
+                    , HUnit >= 1.6.2 && < 1.7
                     , core
-                    , mtl
-                    , text
+                    , mtl >= 2.3.2 && < 2.4
+                    , text >= 2.1.4 && < 2.2
