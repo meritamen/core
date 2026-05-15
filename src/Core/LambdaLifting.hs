@@ -173,7 +173,7 @@ collectSCs_e (ECase e alts) = (scs_e <> scs_alts, ECase e' alts')
       where
         (scs_rhs, rhs') = collectSCs_e rhs
 collectSCs_e (ELet is_rec defns body)
-  = (rhss_scs ++ body_scs ++ local_scs, mkELet is_rec non_scs' body')
+  = (rhss_scs <> body_scs <> local_scs, mkELet is_rec non_scs' body')
     where
       (rhss_scs,defns') = mapAccumL collectSCs_d [] defns
       scs' = [(name,rhs) | (name,rhs) <- defns', isELam rhs ]
