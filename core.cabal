@@ -9,7 +9,7 @@ author:             Meritamen
 maintainer:         meritamen@sdf.org
 category:           Language
 build-type:         Simple
-tested-with:        GHC == 9.12.4
+tested-with:        GHC == 9.12.4, GHC == 9.10.3
 extra-source-files: test/examplePrograms/*.core
 
 common warnings
@@ -28,10 +28,10 @@ library
     build-depends:    base >=4.18.3.0 && < 4.22
                     , containers >= 0.7 && < 0.8
                     , megaparsec >= 9.7.0 && < 9.8
-                    , mtl >= 2.3.2 && < 2.4
+                    , mtl >= 2.3.1 && < 2.4
                     , parser-combinators >= 1.3.1 && < 1.4
                     , prettyprinter >= 1.7.1 && < 1.8
-                    , text >= 2.1.4 && < 2.2
+                    , text >= 2.1.3 && < 2.2
                     , text-show >= 3.11.3 && < 3.12
     hs-source-dirs:   src
     default-language: Haskell2010
@@ -42,8 +42,8 @@ executable core
     build-depends:
                       base >=4.18.3.0 && < 4.22
                     , core
-                    , mtl >= 2.3.2 && < 2.4
-                    , text >= 2.1.4 && < 2.2
+                    , mtl >= 2.3.1 && < 2.4
+                    , text >= 2.1.3 && < 2.2
 
     hs-source-dirs:   app
     default-language: Haskell2010
@@ -54,11 +54,11 @@ benchmark core-bench
     build-depends:    base
                     , core
                     , criterion >= 1.6.5 && < 1.7
-                    , deepseq >= 1.5.1 && < 1.6
-                    , directory >= 1.3.10 && < 1.4
-                    , filepath >= 1.5.5 && < 1.6
-                    , mtl >= 2.3.2 && < 2.4
-                    , text >= 2.1.4 && < 2.2
+                    , deepseq >= 1.5.0 && < 1.6
+                    , directory >= 1.3.8 && < 1.4
+                    , filepath >= 1.5.4 && < 1.6
+                    , mtl >= 2.3.1 && < 2.4
+                    , text >= 2.1.3 && < 2.2
     hs-source-dirs:   benchmark
     default-language: Haskell2010
 
@@ -72,5 +72,5 @@ test-suite core-test
                       base >=4.18.3.0 && < 4.22
                     , HUnit >= 1.6.2 && < 1.7
                     , core
-                    , mtl >= 2.3.2 && < 2.4
-                    , text >= 2.1.4 && < 2.2
+                    , mtl >= 2.3.1 && < 2.4
+                    , text >= 2.1.3 && < 2.2
