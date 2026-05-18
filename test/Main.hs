@@ -17,7 +17,7 @@ import Core.Machine
 import Core.Parser
 
 testDirectory :: FilePath
-testDirectory = "./test/examplePrograms/"
+testDirectory = "examples/"
 
 testPairs :: [(FilePath, Text)]
 testPairs =   first (testDirectory <>)

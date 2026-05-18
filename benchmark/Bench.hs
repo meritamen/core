@@ -57,7 +57,7 @@ readAllCoreFiles dir = do
         pure (takeFileName fp, content)
 
 coreFiles :: [(FilePath, Text)]
-coreFiles = unsafePerformIO $ readAllCoreFiles "test/examplePrograms/"
+coreFiles = unsafePerformIO $ readAllCoreFiles "examples/"
 
 bench_parse :: [Benchmark]
 bench_parse = [
