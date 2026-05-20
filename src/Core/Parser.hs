@@ -2,36 +2,36 @@
 
 module Core.Parser (parseCore, parseCoreFile) where
 
-import           Control.Exception              (throw)
-import           Control.Monad                  (void)
-import           Control.Monad.Combinators.Expr (Operator (..), makeExprParser)
-import           Data.Text                      (Text)
-import qualified Data.Text                      as T
-import qualified Data.Text.IO                   as TIO
-import           Text.Megaparsec
-    ( choice
-    , eof
-    , many
-    , notFollowedBy
-    , runParser
-    , sepBy
-    , sepBy1
-    , some
-    , try
-    , (<|>)
-    )
-import           Text.Megaparsec.Char           (space)
-
+import Control.Exception (throw)
+import Control.Monad (void)
+import Control.Monad.Combinators.Expr (Operator (..), makeExprParser)
 import Core.Language
 import Core.Scanner
+import Data.Text (Text)
+import qualified Data.Text as T
+import qualified Data.Text.IO as TIO
+import Text.Megaparsec
+  ( choice,
+    eof,
+    many,
+    notFollowedBy,
+    runParser,
+    sepBy,
+    sepBy1,
+    some,
+    try,
+    (<|>),
+  )
+import Text.Megaparsec.Char (space)
 
 variable :: Parser Text
 variable = choice $ [try alphaVariable]
-  where alphaVariable = do
-          v <- identifier
-          if v `elem` keywords
-            then fail . T.unpack $ "cannot use keyword " <> v <> " as variableiable"
-            else return v
+  where
+    alphaVariable = do
+      v <- identifier
+      if v `elem` keywords
+        then fail . T.unpack $ "cannot use keyword " <> v <> " as variableiable"
+        else return v
 
 varP :: Parser CoreExpr
 varP = EVar <$> variable
@@ -77,8 +77,9 @@ letP = do
   expr <- exprP
   return $ ELet isRec defns expr
   where
-    isRecP = (symbol "letrec" >> return True)
-            <|> (symbol "let" >> return False)
+    isRecP =
+      (symbol "letrec" >> return True)
+        <|> (symbol "let" >> return False)
     letDefnP = do
       var <- variable
       equal
@@ -94,11 +95,14 @@ lamP = do
   return $ ELam args expr
 
 operatorTable :: [[Operator Parser CoreExpr]]
-operatorTable = (fmap . fmap) binary
-                [ ["*", "/"]
-                , ["+", "-"]
-                , ["==", "~=", ">=", "<=", "+", "-", "*", "/", ">", "<"]
-                , ["&", "|"]]
+operatorTable =
+  (fmap . fmap)
+    binary
+    [ ["*", "/"],
+      ["+", "-"],
+      ["==", "~=", ">=", "<=", "+", "-", "*", "/", ">", "<"],
+      ["&", "|"]
+    ]
   where
     binary name = InfixL (mkBinaryAp name <$ symbol name)
     mkBinaryAp op = \l r -> EAp (EAp (EVar op) l) r
@@ -122,12 +126,12 @@ programP = space *> scDefnP `sepBy1` semicolon <* eof
 
 parseCore :: Text -> CoreProgram
 parseCore input = case runParser programP "<stdin>" input of
-  Left err   -> throw err
+  Left err -> throw err
   Right prog -> prog
 
 parseCoreFile :: FilePath -> IO CoreProgram
 parseCoreFile f = do
   contents <- TIO.readFile f
   case runParser programP f contents of
-    Left err   -> throw err
+    Left err -> throw err
     Right prog -> return prog
