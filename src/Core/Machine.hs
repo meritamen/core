@@ -31,14 +31,6 @@ import qualified Data.Map.Strict as Map
 import Data.Text (Text)
 import qualified Data.Text as T
 import Prettyprinter
-  ( Doc,
-    indent,
-    line,
-    pretty,
-    punctuate,
-    vsep,
-    (<+>),
-  )
 import Text.Read (readMaybe)
 import TextShow (showt)
 

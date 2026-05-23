@@ -2,22 +2,13 @@
 
 module Main (main) where
 
-import Control.Monad.State.Strict (evalState)
-import Core.Compiler
-import Core.LambdaLifting
-import Core.Machine
-import Core.Parser
+import Core
 import Data.Bifunctor
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import qualified System.Exit as Exit
 import Test.HUnit
-  ( Counts (errors, failures),
-    Test (..),
-    assertEqual,
-    runTestTT,
-  )
 
 testDirectory :: FilePath
 testDirectory = "examples/"
@@ -39,16 +30,10 @@ testPairs =
           ("lambda2.core", "2")
         ]
 
-extractResult :: [GmState] -> Text
-extractResult states = gmOutput $ last states
-
 doTest :: Text -> Text -> Test
 doTest prog expected =
   TestCase $
-    assertEqual (T.unpack $ "should return " <> expected) expected (runProgram prog)
-
-runProgram :: Text -> Text
-runProgram = extractResult . evalState eval . compile . lambdaLift . parseCore
+    assertEqual (T.unpack $ "should return " <> expected) expected (getCoreOutput prog)
 
 main :: IO ()
 main = do
