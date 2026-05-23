@@ -23,4 +23,4 @@ traceCoreProgram :: Text -> [GmState]
 traceCoreProgram = evalState eval . compile . lambdaLift . parseCore
 
 extractResult :: [GmState] -> Text
-extractResult states = gmOutput $ last states
+extractResult = gmOutput . last
