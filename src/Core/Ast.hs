@@ -1,3 +1,5 @@
+{-# LANGUAGE StrictData #-}
+
 module Core.Ast where
 
 import Core.Utils

@@ -1,3 +1,5 @@
+{-# LANGUAGE StrictData #-}
+
 module Core.Machine.Types where
 
 import Control.Monad.State.Strict
