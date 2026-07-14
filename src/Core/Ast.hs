@@ -1,16 +1,4 @@
-module Core.Language
-  ( IsRec,
-    Name,
-    CoreExpr,
-    CoreAlt,
-    CoreProgram,
-    CoreScDefn,
-    Expr (..),
-    Alter,
-    Program,
-    ScDefn,
-  )
-where
+module Core.Ast where
 
 import Core.Utils
 import Data.Text (Text)

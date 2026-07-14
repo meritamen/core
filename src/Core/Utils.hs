@@ -1,16 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Core.Utils
-  ( Name,
-    Addr,
-    showAddr,
-    NameSupply,
-    initialNameSupply,
-    getName,
-    getNames,
-    makeName,
-  )
-where
+module Core.Utils where
 
 import Data.Text (Text)
 import TextShow (TextShow (..))

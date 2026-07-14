@@ -1,9 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Core.Compiler (compile) where
+module Core.Backend.Codegen where
 
-import Core.Language
+import Core.Ast
 import Core.Machine
+import Core.Machine.Types
 import Core.Prelude
 import Core.Utils
 import Data.List (mapAccumL)

@@ -1,8 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Core.Prelude (preludeDefs) where
+module Core.Prelude where
 
-import Core.Language
+import Core.Ast
 
 preludeDefs :: CoreProgram
 preludeDefs =

@@ -1,30 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Core.Scanner
-  ( Parser,
-    symbol,
-    braces,
-    parens,
-    angles,
-    comma,
-    dot,
-    backSlash,
-    rightArrow,
-    semicolon,
-    equal,
-    hyphen,
-    integer,
-    identifier,
-    operators,
-    keywords,
-  )
-where
+module Core.Frontend.Scanner where
 
-import Control.Monad (void)
+import Control.Monad
 import Data.Text (Text)
 import qualified Data.Text as T
-import Data.Void (Void)
-import Text.Megaparsec (Parsec, between, many, (<|>))
+import Data.Void
+import Text.Megaparsec
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 

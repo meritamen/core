@@ -1,16 +1,12 @@
-module Core
-  ( dumpCoreTrace,
-    getCoreOutput,
-    traceCoreProgram,
-    extractResult,
-  )
-where
+module Core where
 
 import Control.Monad.State.Strict
-import Core.Compiler
+import Core.Backend.Codegen
 import Core.LambdaLifting
 import Core.Machine
-import Core.Parser
+import Core.Machine.Types
+import Core.Machine.Pretty
+import Core.Frontend.Parser
 import Data.Text (Text)
 
 dumpCoreTrace :: Text -> Text

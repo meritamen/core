@@ -18,13 +18,15 @@ common opts
 library
     import:           opts
     exposed-modules:  Core
-                    , Core.Compiler
+                    , Core.Ast
+                    , Core.Backend.Codegen
+                    , Core.Frontend.Parser
+                    , Core.Frontend.Scanner
                     , Core.LambdaLifting
-                    , Core.Language
                     , Core.Machine
-                    , Core.Parser
+                    , Core.Machine.Pretty
+                    , Core.Machine.Types
                     , Core.Prelude
-                    , Core.Scanner
                     , Core.Utils
     build-depends:    base >=4.18.3.0 && < 4.22
                     , containers >= 0.6 && < 0.8

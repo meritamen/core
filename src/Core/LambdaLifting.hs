@@ -1,8 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Core.LambdaLifting (lambdaLift) where
+module Core.LambdaLifting where
 
-import Core.Language
+import Core.Ast
 import Core.Utils
 import Data.List (mapAccumL)
 import Data.Map (Map)

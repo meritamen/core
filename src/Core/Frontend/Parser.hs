@@ -1,28 +1,16 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Core.Parser (parseCore, parseCoreFile) where
+module Core.Frontend.Parser where
 
 import Control.Exception (throw)
-import Control.Monad (void)
-import Control.Monad.Combinators.Expr (Operator (..), makeExprParser)
-import Core.Language
-import Core.Scanner
+import Control.Monad
+import Control.Monad.Combinators.Expr
+import Core.Ast
+import Core.Frontend.Scanner
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Text.Megaparsec
-  ( choice,
-    eof,
-    many,
-    notFollowedBy,
-    runParser,
-    sepBy,
-    sepBy1,
-    some,
-    try,
-    (<|>),
-  )
-import Text.Megaparsec.Char (space)
 
 variable :: Parser Text
 variable = choice $ [try alphaVariable]
@@ -122,7 +110,7 @@ scDefnP = do
   return (name, args, body)
 
 programP :: Parser CoreProgram
-programP = space *> scDefnP `sepBy1` semicolon <* eof
+programP = spaceConsumer *> scDefnP `sepBy1` semicolon <* eof
 
 parseCore :: Text -> CoreProgram
 parseCore input = case runParser programP "<stdin>" input of

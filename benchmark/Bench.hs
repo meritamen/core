@@ -10,11 +10,12 @@ module Main where
 import Control.DeepSeq
 import Control.Monad
 import Control.Monad.State.Strict
-import Core.Compiler
+import Core.Backend.Codegen
 import Core.LambdaLifting
-import Core.Language
+import Core.Ast
 import Core.Machine
-import Core.Parser
+import Core.Machine.Types
+import Core.Frontend.Parser
 import Criterion.Main
 import Data.Text (Text)
 import qualified Data.Text as T
